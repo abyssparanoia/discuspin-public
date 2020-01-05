@@ -1,139 +1,84 @@
-import actionCreatorFactory from "typescript-fsa";
-import { reducerWithInitialState } from "typescript-fsa-reducers";
-import { Dispatch } from "redux";
-import * as authRepository from "./repository/auth";
-import { User } from "firebase";
-import { actions as userActions } from "./user";
+import actionCreatorFactory from 'typescript-fsa'
+import { reducerWithInitialState } from 'typescript-fsa-reducers'
+import { Dispatch } from 'redux'
+import { Credential } from 'src/firebase/interface'
+import * as repository from './repositories'
+import Router from 'next/router'
+import { addError } from './error'
+
+const actionCreator = actionCreatorFactory('auth')
+
+export const actions = {
+  signInWithGoogle: actionCreator.async<void, { credential: Credential }, Error>('SIGN_IN_WITH_GOOGLE'),
+  signOut: actionCreator.async<void, void, Error>('SIGN_OUT'),
+  setCredential: actionCreator<Credential | undefined>('SET_CREDENTIAL')
+}
 
 export interface State {
-  authUser?: User;
-  isLoadingRefresh: boolean;
-  isLoadingSignIn: boolean;
-  isLoadingSignOut: boolean;
-  errorMessage?: string;
+  credential?: Credential
+  isLoading: boolean
+  error?: Error
 }
 
 const initialState: State = {
-  isLoadingSignIn: false,
-  isLoadingRefresh: false,
-  isLoadingSignOut: false
-};
+  isLoading: false
+}
 
-const actionCreator = actionCreatorFactory("auth");
-
-export const actions = {
-  refreshAuthUID: actionCreator.async<
-    void,
-    { authUser?: User },
-    { message?: string }
-  >("REFRESH_AUTH_UID"),
-  signIn: actionCreator.async<void, { authUser?: User }, { message?: string }>(
-    "SIGN_IN_WITH_GOOGLE"
-  ),
-  signOut: actionCreator.async<void, void, { message?: string }>("SIGN_OUT")
-};
-
-export const refreshAuthUID = () => (dispatch: Dispatch) => {
-  dispatch(actions.refreshAuthUID.started());
-  return authRepository.auth.onIdTokenChanged(
-    authUser => {
-      dispatch(
-        actions.refreshAuthUID.done({
-          result: { authUser: authUser ? authUser : undefined }
-        })
-      );
-    },
-    error => {
-      dispatch(
-        actions.refreshAuthUID.failed({
-          error: { message: `認証情報の取得に失敗しました[${error}]` }
-        })
-      );
-    }
-  );
-};
-
-export const signIn = () => (dispatch: Dispatch) => {
-  dispatch(actions.signIn.started());
-  return authRepository
-    .signInWithGoogle()
-    .then(userCredential =>
-      dispatch(
-        actions.signIn.done({
-          result: {
-            authUser: userCredential.user ? userCredential.user : undefined
-          }
-        })
-      )
-    )
-    .catch(_ =>
-      dispatch(
-        actions.signIn.failed({
-          error: { message: "ログインに失敗しました" }
-        })
-      )
-    );
-};
+export const signInWithGoogle = () => async (dispatch: Dispatch) => {
+  try {
+    dispatch(actions.signInWithGoogle.started())
+    const credential = await repository.signInWithGoogle()
+    Router.push('/')
+    dispatch(actions.signInWithGoogle.done({ result: { credential } }))
+  } catch (error) {
+    dispatch(actions.signInWithGoogle.failed({ error: error }))
+    dispatch(addError(error))
+  }
+}
 
 export const signOut = () => async (dispatch: Dispatch) => {
-  dispatch(actions.signOut.started());
-  dispatch(userActions.unWatchUser());
-  await authRepository
-    .signOut()
-    .then(() => {
-      dispatch(actions.signOut.done({}));
-    })
-    .catch(error => {
-      dispatch(
-        actions.signOut.failed({
-          error: { message: `ログアウトに失敗しました。[${error}]` }
-        })
-      );
-    });
-};
+  try {
+    dispatch(actions.signOut.started())
+    await repository.signOut()
+    Router.push('/sign_in')
+    dispatch(actions.signOut.done({}))
+  } catch (error) {
+    dispatch(actions.signOut.failed({ error }))
+    dispatch(addError(error))
+  }
+}
 
 export const reducer = reducerWithInitialState(initialState)
-  .case(actions.refreshAuthUID.started, state => ({
+  .case(actions.setCredential, (state, payload) => ({
     ...state,
-    isLoadingRefresh: true
+    credential: payload
   }))
-  .case(actions.refreshAuthUID.done, (state, payload) => ({
+  .case(actions.signInWithGoogle.started, state => ({
     ...state,
-    isLoadingRefresh: false,
-    authUser: payload.result.authUser
+    isLoading: true
   }))
-  .case(actions.refreshAuthUID.failed, (state, payload) => ({
+  .case(actions.signInWithGoogle.done, (state, payload) => ({
     ...state,
-    isLoadingRefresh: false,
-    errorMessage: payload.error.message
+    isLoading: false,
+    credential: payload.result.credential
   }))
-  .case(actions.signIn.started, state => ({
+  .case(actions.signInWithGoogle.failed, (state, payload) => ({
     ...state,
-    isLoadingSignIn: true
-  }))
-  .case(actions.signIn.done, (state, paylaod) => ({
-    ...state,
-    isLoadingSignIn: false,
-    authUser: paylaod.result.authUser
-  }))
-  .case(actions.signIn.failed, (state, paylaod) => ({
-    ...state,
-    isLoadingSignIn: false,
-    errorMessage: paylaod.error.message
+    isLoading: false,
+    error: payload.error
   }))
   .case(actions.signOut.started, state => ({
     ...state,
-    isLoadingSignOut: true
+    isLoading: true,
+    error: undefined
   }))
   .case(actions.signOut.done, state => ({
     ...state,
-    isLoadingSignOut: false,
-    authUser: undefined
+    isLoading: false,
+    credential: undefined
   }))
   .case(actions.signOut.failed, (state, payload) => ({
     ...state,
-    authUser: undefined,
-    isLoadingSignOut: false,
-    errorMessage: payload.error.message
+    isLoading: false,
+    error: payload.error
   }))
-  .build();

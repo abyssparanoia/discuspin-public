@@ -1,13 +1,37 @@
-# Discuspin
+## nextjs-firebase-boilerplate
 
-## Overview
+### what is this?
 
-Make discussions more active and easier to look back
+`This is the type-safe frontend SSR boilerplate using nextjs, typescript and firebase.`
 
-## tech stack
+### setup
 
-- react
-- typescript
-- redux
-- firebase
-- react-router
+1. prepare firebase project
+2. save client key as `firebase.client.key.json`
+3. save admin key as `firebase.admin.key.json`
+
+4. prepare dotenv
+
+```bash
+> cp .env.tmpl .env
+```
+
+### how to run on docker
+
+```bash
+# build
+$ docker-compose build
+
+# run
+$ docker-compose up -d
+```
+
+### how to run on local
+
+```bash
+# install npm packages
+$ yarn
+
+# run
+$ yarn start:dev
+```

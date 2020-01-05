@@ -1,147 +1,220 @@
-import actionCreatorFactory from "typescript-fsa";
-import { reducerWithInitialState } from "typescript-fsa-reducers";
-import { Dispatch } from "redux";
-import { db } from "./firebase";
-import { Message, buildMessage } from "./entity/message";
-import { createMessage } from "./repository/message";
+import { Message, buildMessageCollectionPath, buildMessage } from './entities'
+import * as repositories from 'src/modules/repositories'
+import { db } from 'src/firebase/client'
+import actionCreatorFactory from 'typescript-fsa'
+import { reducerWithInitialState } from 'typescript-fsa-reducers'
+import { Dispatch } from 'redux'
+import { ReduxStore } from './reducer'
+
+import Router from 'next/router'
+import { fetchUser } from 'src/modules/repositories'
 
 export interface State {
-  list: Message[];
-  isLoading: boolean;
-  errorMessage?: string;
-  watchMessage: {
-    unsubscribe?: () => void;
-  };
+  list: Message[]
+  isLoading: boolean
+  error?: Error
+  imageUrl?: string
+  unsubsriber?: () => void
 }
 
-const intialState: State = {
+const initialState: State = {
   list: [],
-  isLoading: false,
-  errorMessage: undefined,
-  watchMessage: {
-    unsubscribe: undefined
-  }
-};
+  isLoading: false
+}
 
-const actionCreator = actionCreatorFactory("thread");
+export interface CreateMessageInput {
+  text: string
+}
 
+const actionCreator = actionCreatorFactory('message')
 export const actions = {
-  watchMessage: actionCreator.async<void, void, { message: string }>(
-    "WATCH_MESSAGE"
-  ),
-  sendMessage: actionCreator.async<void, void, { message: string }>(
-    "SEND_MESSAGE"
-  ),
-  unWatchMessage: actionCreator<void>("UNWATCH_MESSAGE"),
-  addMessage: actionCreator<{ message: Message }>("ADD_MESSAGE"),
-  changeMessage: actionCreator<{ message: Message }>("CHANGE_MESSAGE"),
-  setMessageUnsubscribe: actionCreator<{ unsubscribe: () => void }>(
-    "SET_MESSAGE_UNSUBSCRIBE"
-  )
-};
+  createMessage: actionCreator.async<void, void, Error>('CREATE_MESSAGE'),
+  editMessage: actionCreator.async<void, void, Error>('EDIT_MESSAGE'),
+  deleteMessage: actionCreator.async<void, void, Error>('DELETE_MESSAGE'),
+  watchMessageList: actionCreator.async<void, { list: Message[] }, Error>('WATCH_MESSAGE_LIST'),
+  unWatchMessageList: actionCreator<void>('UNWATCH_MESSAGE_LIST'),
+  setMessageListUnsubscribe: actionCreator<{ unsubscribe: () => void }>('SET_MESSAGE_LIST_UNSUBSCRIBE'),
+  uploadImage: actionCreator.async<void, { url: string }, Error>('UPLOAD_IMAGE')
+}
 
-export const watchMessages = (threadId: string) => async (
-  dispatch: Dispatch
-) => {
-  dispatch(actions.watchMessage.started());
-  const unsubscribe = db
-    .collection("threads")
-    .doc(threadId)
-    .collection("messages")
-    .orderBy("createdAt")
-    .onSnapshot(snap => {
-      snap!.docChanges().forEach(async change => {
-        const message: Message = await buildMessage(
-          change.doc.id,
-          change.doc.data()
-        );
-        // 追加時
-        if (change.type === "added") {
-          dispatch(actions.addMessage({ message: message }));
-        }
-        // 変更時
-        else if (change.type === "modified") {
-          dispatch(actions.changeMessage({ message: message }));
-        }
-      });
-    });
-  dispatch(actions.setMessageUnsubscribe({ unsubscribe: unsubscribe }));
-  dispatch(actions.watchMessage.done({}));
-};
-
-export const sendMessage = (
-  threadId: string,
-  userId: string,
-  body: string
-) => async (dispatch: Dispatch) => {
-  dispatch(actions.sendMessage.started());
+export const createMessage = (values: CreateMessageInput) => async (dispatch: Dispatch, getState: () => ReduxStore) => {
   try {
-    await createMessage(threadId, userId, body);
-    dispatch(actions.sendMessage.done({}));
+    dispatch(actions.createMessage.started())
+    const body = values.text
+    const userID = getState().auth.credential!.uid
+    const threadID = Router.query['threadID'].toString()
+    await repositories.createMessage({ body, threadID, userID })
+    dispatch(actions.createMessage.done({}))
   } catch (error) {
-    dispatch(actions.sendMessage.failed({ error: { message: error } }));
+    dispatch(actions.createMessage.failed({ error }))
   }
-};
+}
 
-export const unWatchMessage = () => (dispatch: Dispatch) => {
-  dispatch(actions.unWatchMessage());
-};
+export interface WatchThreadListInput {
+  threadID: string
+}
 
-export const reducer = reducerWithInitialState(intialState)
-  // スレッド取得
-  .case(actions.watchMessage.started, state => ({
+export const watchMessageList = ({ threadID }: WatchThreadListInput) => (
+  dispatch: Dispatch,
+  getState: () => ReduxStore
+) => {
+  dispatch(actions.watchMessageList.started())
+  const unsubscribe = buildMessageCollectionPath({ db, threadID })
+    .where('enabled', '==', true)
+    .orderBy('createdAt', 'asc')
+    .onSnapshot(async qsnp => {
+      const list = [...getState().message.list]
+      const promises: Promise<any>[] = []
+      qsnp.docChanges().forEach(({ type, doc }) => {
+        switch (type) {
+          //- 追加時
+          case 'added':
+            promises.push(fetchUser(doc.data().userID).then(user => list.push(buildMessage(doc.id, doc.data(), user!))))
+            break
+          //- 変更時
+          case 'modified': {
+            const index = list.findIndex(item => item.id === doc.id)
+            promises.push(
+              fetchUser(doc.data().userID).then(user => (list[index] = buildMessage(doc.id, doc.data(), user!)))
+            )
+            break
+          }
+          //- 削除時
+          case 'removed': {
+            const index = list.findIndex(item => item.id === doc.id)
+            list.splice(index, 1)
+            break
+          }
+        }
+      })
+      await Promise.all(promises)
+
+      dispatch(actions.watchMessageList.done({ result: { list } }))
+    })
+  actions.setMessageListUnsubscribe({ unsubscribe })
+}
+
+export const unWatchMessageList = () => (dispatch: Dispatch, getState: () => ReduxStore) => {
+  const unsubscriber = getState().message.unsubsriber
+  if (unsubscriber) {
+    unsubscriber()
+    dispatch(actions.unWatchMessageList())
+  }
+}
+
+export const uploadImage = (file: File) => async (dispatch: Dispatch, _: () => ReduxStore) => {
+  dispatch(actions.uploadImage.started())
+  try {
+    const url = await repositories.uploadImage(file)
+    dispatch(actions.uploadImage.done({ result: { url } }))
+  } catch (error) {
+    dispatch(actions.uploadImage.failed({ error }))
+  }
+}
+
+export const editMessage = (threadID: string, messageID: string, text: string) => async (
+  dispatch: Dispatch,
+  _: () => ReduxStore
+) => {
+  dispatch(actions.editMessage.started())
+  try {
+    await repositories.editMessage({ threadID, messageID, body: text })
+    dispatch(actions.editMessage.done({}))
+  } catch (error) {
+    dispatch(actions.editMessage.failed({ error }))
+  }
+}
+
+export const deleteMessage = (threadID: string, messageID: string) => async (
+  dispatch: Dispatch,
+  _: () => ReduxStore
+) => {
+  dispatch(actions.deleteMessage.started())
+  try {
+    await repositories.deleteMessage({ threadID, messageID })
+    dispatch(actions.deleteMessage.done({}))
+  } catch (error) {
+    dispatch(actions.deleteMessage.failed({ error }))
+  }
+}
+
+export const reducer = reducerWithInitialState(initialState)
+  .case(actions.createMessage.started, state => ({
     ...state,
-    isLoading: true
+    isLoading: true,
+    error: undefined
   }))
-  .case(actions.watchMessage.done, state => ({
+  .case(actions.createMessage.done, state => ({
     ...state,
     isLoading: false
   }))
-  .case(actions.watchMessage.failed, (state, payload) => ({
+  .case(actions.createMessage.failed, (state, payload) => ({
     ...state,
     isLoading: false,
-    errorMessage: payload.error.message
+    error: payload.error
   }))
-  .case(actions.sendMessage.started, state => ({
+  .case(actions.watchMessageList.started, state => ({
+    ...state,
+    isLoading: true,
+    list: [],
+    error: undefined
+  }))
+  .case(actions.watchMessageList.done, (state, payload) => ({
+    ...state,
+    isLoading: false,
+    list: payload.result.list
+  }))
+  .case(actions.watchMessageList.failed, (state, payload) => ({
+    ...state,
+    isLoading: false,
+    error: payload.error
+  }))
+  .case(actions.unWatchMessageList, state => ({
+    ...state,
+    unsubsriber: undefined,
+    list: []
+  }))
+  .case(actions.setMessageListUnsubscribe, (state, payload) => ({
+    ...state,
+    unsubsriber: payload.unsubscribe
+  }))
+  .case(actions.uploadImage.started, state => ({
     ...state,
     isLoading: true
   }))
-  .case(actions.sendMessage.done, state => ({
+  .case(actions.uploadImage.done, (state, payload) => ({
+    ...state,
+    isLoading: false,
+    imageUrl: payload.result.url
+  }))
+  .case(actions.uploadImage.failed, (state, payload) => ({
+    ...state,
+    isLoading: false,
+    error: payload.error
+  }))
+  .case(actions.editMessage.started, state => ({
+    ...state,
+    isLoading: true
+  }))
+  .case(actions.editMessage.done, state => ({
     ...state,
     isLoading: false
   }))
-  .case(actions.sendMessage.failed, (state, payload) => ({
+  .case(actions.editMessage.failed, (state, payload) => ({
     ...state,
     isLoading: false,
-    errorMessage: payload.error.message
+    error: payload.error
   }))
-  .case(actions.setMessageUnsubscribe, (state, payload) => ({
+  .case(actions.deleteMessage.started, state => ({
     ...state,
-    watchMessage: {
-      unsubscribe: payload.unsubscribe
-    }
+    isLoading: true
   }))
-  .case(actions.addMessage, (state, payload) => {
-    const list = [...state.list];
-    list.push(payload.message);
-    list.sort((a, b) => a.createdAt - b.createdAt);
-    return {
-      ...state,
-      list: list
-    };
-  })
-  .case(actions.changeMessage, (state, payload) => {
-    const list = [...state.list];
-    const message = payload.message;
-    const index = list.findIndex(item => item.id === message.id);
-    list[index] = message;
-    return {
-      ...state,
-      list: list
-    };
-  })
-  .case(actions.unWatchMessage, (state, _) => {
-    if (state.watchMessage.unsubscribe) state.watchMessage.unsubscribe();
-    return { ...state, watchMessage: { unsubscribe: undefined }, list: [] };
-  })
-  .build();
+  .case(actions.deleteMessage.done, state => ({
+    ...state,
+    isLoading: false
+  }))
+  .case(actions.deleteMessage.failed, (state, payload) => ({
+    ...state,
+    isLoading: false,
+    error: payload.error
+  }))

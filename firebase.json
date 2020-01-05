@@ -1,12 +1,14 @@
 {
+  "functions": {
+    "source": "dist/src",
+    "predeploy": ["yarn build", "cp package.json ./dist/src"]
+  },
   "hosting": {
-    "public": "./build",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "predeploy": ["yarn run build"],
+    "public": "public",
     "rewrites": [
       {
-        "source": "**",
-        "destination": "/index.html"
+        "source": "**/**",
+        "function": "nextApp"
       }
     ]
   }

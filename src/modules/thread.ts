@@ -1,186 +1,136 @@
-import actionCreatorFactory from "typescript-fsa";
-import { reducerWithInitialState } from "typescript-fsa-reducers";
-import { Dispatch } from "redux";
-import { db } from "./firebase";
-import { Thread } from "./entity/thread";
-import {
-  getThreads,
-  addThread as addThreadToFirebase
-} from "./repository/thread";
+import actionCreatorFactory from 'typescript-fsa'
+import { reducerWithInitialState } from 'typescript-fsa-reducers'
+import { Dispatch } from 'redux'
+import { Thread, buildThreadCollectionPath, buildThread } from 'src/modules/entities'
+import * as repositories from 'src/modules/repositories'
+import { db } from 'src/firebase/client'
+import Router from 'next/router'
+import { ReduxStore } from './reducer'
+import { addError } from './error'
 
-import { push } from "connected-react-router";
-export interface State {
-  list: Thread[];
-  isLoading: boolean;
-  errorMessage?: string;
-  watchThread: {
-    unsubscribe?: () => void;
-  };
+const actionCreator = actionCreatorFactory('thread')
+export const actions = {
+  createThread: actionCreator.async<void, void, Error>('CREATE_THREAD'),
+  watchThreadList: actionCreator.async<void, { list: Thread[] }, Error>('WATCH_THREAD_LIST'),
+  unWatchThreadList: actionCreator<void>('UNWATCH_THREAD_LIST'),
+  setChannleUnsubscribe: actionCreator<{ unsubscriber: () => void }>('SET_THREAD_UNSUBSCRIBE')
 }
 
-const intialState: State = {
+export interface State {
+  list: Thread[]
+  isLoading: boolean
+  error?: Error
+  unsubscriber?: () => void
+}
+
+const initialState: State = {
   list: [],
   isLoading: false,
-  errorMessage: undefined,
-  watchThread: {
-    unsubscribe: undefined
-  }
-};
+  unsubscriber: undefined
+}
 
-const actionCreator = actionCreatorFactory("thread");
+export interface CreateThreadInput {
+  title: string
+  description: string
+}
 
-// アクション
-export const actions = {
-  fetchThreads: actionCreator.async<
-    void,
-    { threads: Thread[] },
-    { message: string }
-  >("FETCH_THREADS"),
-  addThread: actionCreator.async<void, void, { message: string }>("ADD_THREAD"),
-  watchThreads: actionCreator.async<
-    void,
-    { threads: Thread[] },
-    { message: string }
-  >("WATCH_THREADS"),
-  unWatchThread: actionCreator<void>("UNWATCH_THREADS"),
-  setUnsubscribeThread: actionCreator<{ unsubscribe: () => void }>(
-    "SET_UNSUBSCRIBE_THREAD"
-  )
-};
-
-// スレッドの取得
-export const fetchThreads = (channel_id: string) => async (
-  dispatch: Dispatch
+export const createThread = (values: CreateThreadInput, channelID: string) => async (
+  dispatch: Dispatch,
+  getState: () => ReduxStore
 ) => {
-  dispatch(actions.fetchThreads.started());
   try {
-    const threads = await getThreads(channel_id);
-    dispatch(actions.fetchThreads.done({ result: { threads: threads } }));
-  } catch (err) {
-    dispatch(
-      actions.fetchThreads.failed({
-        error: {
-          message: err
-        }
-      })
-    );
+    dispatch(actions.createThread.started())
+    const userID = getState().auth.credential!.uid
+    const threadID = await repositories.createThread({ ...values, channelID, userID })
+    Router.push(
+      `/channels/[channelID]/threads/[threadID]/messages`,
+      `/channels/${channelID}/threads/${threadID}/messages`
+    )
+    dispatch(actions.createThread.done({}))
+  } catch (error) {
+    dispatch(actions.createThread.failed({ error }))
+    dispatch(addError(error))
   }
-};
+}
 
-// スレッドの追加
-export const addThread = (
-  title: string,
-  description: string,
-  channel_id: string,
-  user_id: string
-) => async (dispatch: Dispatch) => {
-  dispatch(actions.addThread.started());
-  try {
-    const thread_id = await addThreadToFirebase(
-      title,
-      description,
-      channel_id,
-      user_id
-    );
-    dispatch(push(`/${channel_id}/threads/${thread_id}/`));
-    dispatch(actions.addThread.done({}));
-  } catch (err) {
-    dispatch(
-      actions.addThread.failed({
-        error: {
-          message: err
-        }
-      })
-    );
-  }
-};
+export interface WatchThreadListInput {
+  channelID: string
+}
 
-export const watchThread = (channel_id: string) => async (
-  dispatch: Dispatch
+export const watchThreadList = ({ channelID }: WatchThreadListInput) => (
+  dispatch: Dispatch,
+  getState: () => ReduxStore
 ) => {
-  dispatch(actions.watchThreads.started());
-  const unsubscribe = db
-    .collection("threads")
-    .where("channelID", "==", channel_id)
-    .onSnapshot(async () => {
-      try {
-        const threads = await getThreads(channel_id);
-        dispatch(actions.watchThreads.done({ result: { threads: threads } }));
-      } catch (error) {
-        dispatch(
-          actions.watchThreads.failed({
-            error: {
-              message: `スレッドの監視開始に失敗しました${error}`
+  dispatch(actions.watchThreadList.started())
+  const unsubscriber = buildThreadCollectionPath({ db })
+    .where('channelID', '==', channelID)
+    .onSnapshot(
+      qsnp => {
+        const currentThreadList = getState().thread.list
+        const newThreadList = qsnp.docs.map(dsnp => buildThread(dsnp.id, dsnp.data()))
+
+        const set = new Set()
+        const mergedThreadList = [...currentThreadList, ...newThreadList]
+          .filter(Thread => {
+            if (!set.has(Thread.id)) {
+              set.add(Thread.id)
+              return true
             }
+            return false
           })
-        );
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+
+        dispatch(actions.watchThreadList.done({ result: { list: mergedThreadList } }))
+      },
+      error => {
+        dispatch(actions.watchThreadList.failed({ error }))
+        dispatch(addError(error))
       }
-    });
-  dispatch(actions.unWatchThread());
-  dispatch(actions.setUnsubscribeThread({ unsubscribe: unsubscribe }));
-};
+    )
+  actions.setChannleUnsubscribe({ unsubscriber })
+}
 
-export const unWatchThread = () => (dispatch: Dispatch) => {
-  dispatch(actions.unWatchThread());
-};
+export const unWatchThreadList = () => (dispatch: Dispatch, getState: () => ReduxStore) => {
+  const { unsubscriber } = getState().thread
+  if (unsubscriber) {
+    unsubscriber()
+  }
+  dispatch(actions.unWatchThreadList())
+}
 
-export const reducer = reducerWithInitialState(intialState)
-  // スレッド取得
-  .case(actions.fetchThreads.started, state => ({
+export const reducer = reducerWithInitialState(initialState)
+  .case(actions.createThread.started, state => ({
     ...state,
-    isLoading: true
+    isLoading: true,
+    error: undefined
   }))
-  .case(actions.fetchThreads.done, (state, payload) => ({
-    ...state,
-    isLoading: false,
-    list: payload.result.threads
-  }))
-  .case(actions.fetchThreads.failed, (state, payload) => ({
-    ...state,
-    isLoading: false,
-    errorMessage: payload.error.message
-  }))
-  // スレッド追加
-  .case(actions.addThread.started, state => ({
-    ...state,
-    isLoading: true
-  }))
-  .case(actions.addThread.done, state => ({
+  .case(actions.createThread.done, state => ({
     ...state,
     isLoading: false
   }))
-  .case(actions.addThread.failed, (state, payload) => ({
+  .case(actions.createThread.failed, (state, payload) => ({
     ...state,
     isLoading: false,
-    errorMessage: payload.error.message
+    error: payload.error
   }))
-  // スレッドの監視
-  .case(actions.watchThreads.started, state => ({
+  .case(actions.watchThreadList.started, state => ({
     ...state,
-    isLoading: true
+    list: [],
+    error: undefined
   }))
-  .case(actions.watchThreads.done, (state, payload) => ({
+  .case(actions.watchThreadList.done, (state, payload) => ({
     ...state,
-    isLoading: false,
-    list: payload.result.threads
+    list: payload.result.list
   }))
-  .case(actions.watchThreads.failed, (state, payload) => ({
+  .case(actions.watchThreadList.failed, (state, payload) => ({
     ...state,
-    isLoading: false,
-    errorMessage: payload.error.message
+    error: payload.error
   }))
-  // スレッドの監視をやめる
-  .case(actions.unWatchThread, state => {
-    if (state.watchThread.unsubscribe) {
-      state.watchThread.unsubscribe!();
-    }
-
-    return {
-      ...state,
-      list: [],
-      watchThread: {
-        unsubscribe: undefined
-      }
-    };
-  })
-  .build();
+  .case(actions.setChannleUnsubscribe, (state, payload) => ({
+    ...state,
+    unsubscriber: payload.unsubscriber
+  }))
+  .case(actions.unWatchThreadList, state => ({
+    ...state,
+    unsubscriber: undefined
+  }))
