@@ -9,18 +9,18 @@ const useStyles = makeStyles((theme: Theme) =>
   createStyles({
     root: {
       flexGrow: 1,
-      padding: theme.spacing(2)
+      padding: theme.spacing(4)
     },
     formFields: {
-      marginTop: theme.spacing(2),
       width: '100%',
-      textAlign: 'left'
+      textAlign: 'left',
+      marginBottom: `${theme.spacing(2)}px !important`
     },
     formTextArea: {
-      marginTop: theme.spacing(2),
       width: '100%',
       height: '200px',
-      textAlign: 'left'
+      textAlign: 'left',
+      marginBottom: `${theme.spacing(2)}px !important`
     },
     formLabel: {
       fontSize: '1em',
@@ -73,6 +73,7 @@ export const CreateThreadForm = ({ onSubmit, onClose }: Props) => {
             label="Description"
             className={classes.formTextArea}
             component={TextField}
+            multiline={true}
           />
           <Button
             variant="contained"

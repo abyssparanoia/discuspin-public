@@ -1,4 +1,4 @@
-import { Message, buildMessageCollectionPath, buildMessage } from './entities'
+import { Message, buildMessageCollectionPath } from './entities'
 import * as repositories from 'src/modules/repositories'
 import { db } from 'src/firebase/client'
 import actionCreatorFactory from 'typescript-fsa'
@@ -7,13 +7,14 @@ import { Dispatch } from 'redux'
 import { ReduxStore } from './reducer'
 
 import Router from 'next/router'
-import { fetchUser } from 'src/modules/repositories'
+import { fetchMessageWithReply } from 'src/modules/repositories'
 
 export interface State {
   list: Message[]
   isLoading: boolean
   error?: Error
   imageUrl?: string
+  reply?: Message
   unsubsriber?: () => void
 }
 
@@ -34,7 +35,9 @@ export const actions = {
   watchMessageList: actionCreator.async<void, { list: Message[] }, Error>('WATCH_MESSAGE_LIST'),
   unWatchMessageList: actionCreator<void>('UNWATCH_MESSAGE_LIST'),
   setMessageListUnsubscribe: actionCreator<{ unsubscribe: () => void }>('SET_MESSAGE_LIST_UNSUBSCRIBE'),
-  uploadImage: actionCreator.async<void, { url: string }, Error>('UPLOAD_IMAGE')
+  uploadImage: actionCreator.async<void, { url: string }, Error>('UPLOAD_IMAGE'),
+  setReply: actionCreator<{ reply: Message }>('SET_REPLY'),
+  unsetReply: actionCreator<void>('UNSET_REPLY')
 }
 
 export const createMessage = (values: CreateMessageInput) => async (dispatch: Dispatch, getState: () => ReduxStore) => {
@@ -42,9 +45,11 @@ export const createMessage = (values: CreateMessageInput) => async (dispatch: Di
     dispatch(actions.createMessage.started())
     const body = values.text
     const userID = getState().auth.credential!.uid
+    const replyID = getState().message.reply?.id
     const threadID = Router.query['threadID'].toString()
-    await repositories.createMessage({ body, threadID, userID })
+    await repositories.createMessage({ body, threadID, userID, replyID })
     dispatch(actions.createMessage.done({}))
+    dispatch(actions.unsetReply())
   } catch (error) {
     dispatch(actions.createMessage.failed({ error }))
   }
@@ -68,14 +73,21 @@ export const watchMessageList = ({ threadID }: WatchThreadListInput) => (
       qsnp.docChanges().forEach(({ type, doc }) => {
         switch (type) {
           //- 追加時
-          case 'added':
-            promises.push(fetchUser(doc.data().userID).then(user => list.push(buildMessage(doc.id, doc.data(), user!))))
+          case 'added': {
+            promises.push(
+              fetchMessageWithReply({ id: doc.id, threadID: doc.data().threadID }).then(message => {
+                if (message) list.push(message)
+              })
+            )
             break
+          }
           //- 変更時
           case 'modified': {
             const index = list.findIndex(item => item.id === doc.id)
             promises.push(
-              fetchUser(doc.data().userID).then(user => (list[index] = buildMessage(doc.id, doc.data(), user!)))
+              fetchMessageWithReply({ id: doc.id, threadID: doc.data().threadID }).then(message => {
+                if (message) list[index] = message
+              })
             )
             break
           }
@@ -88,7 +100,7 @@ export const watchMessageList = ({ threadID }: WatchThreadListInput) => (
         }
       })
       await Promise.all(promises)
-
+      list.sort((a, b) => a.createdAt - b.createdAt)
       dispatch(actions.watchMessageList.done({ result: { list } }))
     })
   actions.setMessageListUnsubscribe({ unsubscribe })
@@ -137,6 +149,10 @@ export const deleteMessage = (threadID: string, messageID: string) => async (
     dispatch(actions.deleteMessage.failed({ error }))
   }
 }
+
+export const setReply = (reply: Message) => async (dispatch: Dispatch) => dispatch(actions.setReply({ reply }))
+
+export const unsetReply = () => async (dispatch: Dispatch) => dispatch(actions.unsetReply())
 
 export const reducer = reducerWithInitialState(initialState)
   .case(actions.createMessage.started, state => ({
@@ -217,4 +233,12 @@ export const reducer = reducerWithInitialState(initialState)
     ...state,
     isLoading: false,
     error: payload.error
+  }))
+  .case(actions.setReply, (state, payload) => ({
+    ...state,
+    reply: payload.reply
+  }))
+  .case(actions.unsetReply, state => ({
+    ...state,
+    reply: undefined
   }))

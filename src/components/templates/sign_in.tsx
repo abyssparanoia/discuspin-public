@@ -12,6 +12,7 @@ const useStyles = makeStyles((theme: Theme) =>
   createStyles({
     main: {
       width: 'auto',
+      height: '100%',
       display: 'block', // Fix IE 11 issue.
       marginLeft: theme.spacing(3),
       marginRight: theme.spacing(3),

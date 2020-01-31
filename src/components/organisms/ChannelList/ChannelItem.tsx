@@ -8,23 +8,35 @@ const useStyles = makeStyles((theme: Theme) =>
   createStyles({
     channel: {
       fontSize: '13px',
-      padding: '24px 12px',
       cursor: 'pointer',
       transition: '128ms',
       backgroundColor: theme.palette.background.default,
-      color: theme.palette.text.primary,
       '&:hover': {
         background: '#424242'
       }
     },
     channelActive: {
       fontSize: '13px',
-      padding: '24px 12px',
       cursor: 'pointer',
       transition: '128ms',
       backgroundColor: theme.palette.primary.dark,
-      boxShadow: theme.shadows[4],
-      color: theme.palette.text.primary
+      boxShadow: theme.shadows[4]
+    },
+
+    link: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      textDecoration: 'none',
+      width: '100%',
+      height: '100%',
+      color: theme.palette.text.primary,
+      padding: theme.spacing(3)
+    },
+    descriptionButton: {
+      fontSize: '10px',
+      padding: '2px 4px !important',
+      height: '30px'
     }
   })
 )
@@ -37,7 +49,9 @@ interface Props {
 export const ChannelItem = ({ channel, currentChannelId }: Props) => {
   const classes = useStyles()
   const [open, setOpen] = useState<boolean>(false)
-  const handleClickDesciption = () => {
+  const handleClickDesciption = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation()
+    e.preventDefault()
     setOpen(true)
   }
 
@@ -50,9 +64,13 @@ export const ChannelItem = ({ channel, currentChannelId }: Props) => {
       <ModalChannelDescription open={open} closeHandler={handleCloseModal} channel={channel}></ModalChannelDescription>
       <Grid key={channel.id} className={channel.id === currentChannelId ? classes.channelActive : classes.channel}>
         <Link href={`/channels/[channelID]/threads`} as={`/channels/${channel.id}/threads`}>
-          <a>{channel.title}</a>
+          <a className={classes.link}>
+            <div>{channel.title}</div>
+            <Button onClick={handleClickDesciption} className={classes.descriptionButton}>
+              詳細
+            </Button>
+          </a>
         </Link>
-        <Button onClick={handleClickDesciption}>詳細</Button>
       </Grid>
     </Grid>
   )

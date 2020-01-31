@@ -110,7 +110,7 @@ export const watchChannelList = () => (dispatch: Dispatch, getState: () => Redux
           }
           return false
         })
-
+        list.sort((a, b) => a.createdAt - b.createdAt)
         dispatch(actions.watchChannelList.done({ result: { list: newList } }))
       },
       error => {

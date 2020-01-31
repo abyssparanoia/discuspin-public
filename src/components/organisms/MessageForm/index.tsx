@@ -1,24 +1,72 @@
 import React, { useEffect } from 'react'
 import { Formik, Field, Form } from 'formik'
-import { CreateMessageInput } from 'src/modules/message'
+import { CreateMessageInput, unsetReply } from 'src/modules/message'
 import { TextField } from 'formik-material-ui'
 import Button from '@material-ui/core/Button'
-import { Grid } from '@material-ui/core'
+import { Grid, createStyles, makeStyles, Theme, Fab } from '@material-ui/core'
 import { uploadImage } from 'src/modules/message'
 import { ReduxStore } from 'src/modules/reducer'
 import { useSelector, useDispatch } from 'react-redux'
+
+import ImageIcon from '@material-ui/icons/Image'
+import { MessageReply } from '../MessageList/MessageReply'
+
 interface Props {
   channelID: string
   threadID: string
   onSubmit: (values: CreateMessageInput) => void
 }
 
+const useStyles = makeStyles((theme: Theme) =>
+  createStyles({
+    root: {
+      padding: theme.spacing(2)
+    },
+    form: {
+      boxShadow: theme.shadows[5],
+      padding: theme.spacing(2),
+      paddingTop: theme.spacing(4)
+    },
+    buttons: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: theme.spacing(2)
+    },
+    textArea: {
+      '> textarea': {
+        paddingTop: `${theme.spacing(4)}px !important`,
+        paddingBottom: `${theme.spacing(4)}px !important`
+      }
+    },
+    reply: {
+      borderLeft: '3px solid #ffffff',
+      paddingTop: '8px',
+      paddingBottom: '4px',
+      paddingLeft: '12px',
+      marginBottom: '8px'
+    },
+    replyUser: {
+      fontSize: '11px',
+      margin: '0px 4px',
+      display: 'flex',
+      alignItems: 'center'
+    },
+    replyUserImage: {
+      width: '24px',
+      height: '24px',
+      borderRadius: '100%',
+      marginRight: '8px'
+    }
+  })
+)
+
 export const MessageForm = ({ onSubmit }: Props) => {
-  const { imageUrl } = useSelector(({ message }: ReduxStore) => ({
-    imageUrl: message.imageUrl
-  }))
+  const { imageUrl, reply } = useSelector(({ message: { imageUrl, reply } }: ReduxStore) => ({ imageUrl, reply }))
 
   const dispatch = useDispatch()
+
+  const classes = useStyles()
 
   // upload image
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,8 +76,12 @@ export const MessageForm = ({ onSubmit }: Props) => {
     }
   }
 
+  const handleUnsetReply = () => {
+    dispatch(unsetReply())
+  }
+
   return (
-    <div>
+    <div className={classes.root}>
       <Formik
         enableReinitialize={true}
         initialValues={{ text: '' }}
@@ -61,6 +113,7 @@ export const MessageForm = ({ onSubmit }: Props) => {
 
           return (
             <Form
+              className={classes.form}
               //- short cut
               onKeyDown={(e: React.KeyboardEvent) => {
                 if (((e.ctrlKey && !e.metaKey) || (!e.ctrlKey && e.metaKey)) && e.keyCode == 13) {
@@ -68,6 +121,8 @@ export const MessageForm = ({ onSubmit }: Props) => {
                 }
               }}
             >
+              {/* 返信がある時 */}
+              {reply ? <MessageReply reply={reply} onClickClose={handleUnsetReply} /> : null}
               <Field
                 name="text"
                 type="text"
@@ -75,17 +130,18 @@ export const MessageForm = ({ onSubmit }: Props) => {
                 fullWidth={true}
                 multiline={true}
                 component={TextField}
+                className={classes.textArea}
               ></Field>
-              <Grid>
-                <Button color="primary" disabled={isSubmitting} onClick={submitForm}>
+              <Grid className={classes.buttons}>
+                <label htmlFor="input-file">
+                  <Fab color="primary" component="label" size="small">
+                    <ImageIcon />
+                    <input type="file" id="input-file" style={{ display: 'none' }} onChange={handleImageUpload} />
+                  </Fab>
+                </label>
+                <Button variant="contained" color="primary" disabled={isSubmitting} onClick={submitForm}>
                   送信
                 </Button>
-                <label>
-                  <Button variant="contained" component="label" style={{ pointerEvents: 'none' }} color="primary">
-                    画像アップロード
-                    <input type="file" id="input-file" style={{ display: 'none' }} onChange={handleImageUpload} />
-                  </Button>
-                </label>
               </Grid>
             </Form>
           )

@@ -1,25 +1,15 @@
-import React, { useState } from 'react'
-import {
-  Modal,
-  makeStyles,
-  Button,
-  CircularProgress,
-  TextField,
-  DialogTitle,
-  Dialog,
-  DialogContent,
-  DialogContentText,
-  DialogActions
-} from '@material-ui/core'
-import { Channel } from 'src/modules/entities'
+import React from 'react'
+import { Modal, makeStyles, Button, CircularProgress, TextField } from '@material-ui/core'
 import { Formik, Form, Field } from 'formik'
-import { EditChannelInput, editChannel, deleteChannel } from 'src/modules/channel'
+import { EditChannelInput } from 'src/modules/channel'
 import { useDispatch } from 'react-redux'
+import { Thread } from 'src/modules/entities'
+import { editThread, EditThreadInput } from 'src/modules/thread'
 
 interface Props {
   open: boolean
   closeHandler: () => void
-  channel: Channel
+  thread: Thread
 }
 
 const useStyles = makeStyles(theme => ({
@@ -49,27 +39,13 @@ const useStyles = makeStyles(theme => ({
   }
 }))
 
-export const ModalChannelDescription = ({ channel, open, closeHandler }: Props) => {
+export const ModalThreadEdit = ({ thread, open, closeHandler }: Props) => {
   const classes = useStyles()
   const dispatch = useDispatch()
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
-  const handleOpenDeleteDialog = () => {
-    setDeleteDialogOpen(true)
-  }
-
-  const handleClickDelete = () => {
-    dispatch(deleteChannel(channel.id))
-    setDeleteDialogOpen(false)
-  }
-
-  const handleCloseDeleteDialog = () => {
-    setDeleteDialogOpen(false)
-  }
-
-  let values: EditChannelInput = {
-    title: channel.title,
-    description: channel.description
+  let values: EditThreadInput = {
+    title: thread.title,
+    description: thread.description
   }
 
   return (
@@ -98,8 +74,8 @@ export const ModalChannelDescription = ({ channel, open, closeHandler }: Props) 
               }
               return errors
             }}
-            onSubmit={(values: EditChannelInput, { setSubmitting }) => {
-              dispatch(editChannel(channel.id, values))
+            onSubmit={(values: EditThreadInput, { setSubmitting }) => {
+              dispatch(editThread({ ...values, threadID: thread.id }))
               closeHandler()
               setSubmitting(false)
             }}
@@ -134,39 +110,11 @@ export const ModalChannelDescription = ({ channel, open, closeHandler }: Props) 
                 >
                   {!isSubmitting ? '編集' : <CircularProgress size={24} />}
                 </Button>
-
-                <Button disabled={isSubmitting} className={classes.formFields} onClick={handleOpenDeleteDialog}>
-                  削除
-                </Button>
               </Form>
             )}
           </Formik>
         </div>
       </Modal>
-
-      <Dialog
-        open={deleteDialogOpen}
-        keepMounted
-        onClose={handleCloseDeleteDialog}
-        aria-labelledby="alert-dialog-slide-title"
-        aria-describedby="alert-dialog-slide-description"
-        style={{ zIndex: 9999 }}
-      >
-        <DialogTitle id="alert-dialog-slide-title">このチャンネルを削除しますか？</DialogTitle>
-        <DialogContent>
-          <DialogContentText id="alert-dialog-slide-description">
-            削除したチャンネルはもとには戻せません
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} color="primary">
-            キャンセル
-          </Button>
-          <Button onClick={handleClickDelete} color="primary">
-            削除
-          </Button>
-        </DialogActions>
-      </Dialog>
     </div>
   )
 }

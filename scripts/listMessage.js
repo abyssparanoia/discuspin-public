@@ -7,24 +7,30 @@ const app = admin.initializeApp({
 const db = app.firestore()
 
 const main = async () => {
-  const messageCol = db
-    .collection('threads')
-    .doc('8101iq9vdY5arH9q6I7P')
-    .collection('messages')
+  const messageCol = db.collectionGroup('messages')
 
   const qsnp = await messageCol.get()
 
   const list = []
-  qsnp.docs.map(dsnp => {
+  const promises = qsnp.docs.map(async dsnp => {
     const message = dsnp.data()
+    const paths = dsnp.ref.path.split('/')
+    const threadID = paths[1]
+    const threadDsnp = await db
+      .collection('threads')
+      .doc(threadID)
+      .get()
+    const { channelID } = threadDsnp.data()
     list.push({
       objectID: dsnp.id,
       userID: message.userID,
-      channelID: 'sMPTSOBxvFaM3BNlgogI',
-      threadID: '8101iq9vdY5arH9q6I7P',
+      channelID,
+      threadID,
       body: message.body
     })
   })
+
+  await Promise.all(promises)
 
   console.log(JSON.stringify(list))
 }

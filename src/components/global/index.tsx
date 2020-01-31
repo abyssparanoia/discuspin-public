@@ -14,6 +14,12 @@ type Props = {
   title?: string
 }
 
+const baseStyle: React.CSSProperties = {
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column'
+}
+
 const Global: NextComponentType<NextPageContext, {}, Props> = ({ children, title = 'This is the default title' }) => {
   const { errorList, credential } = useSelector(({ error, auth }: ReduxStore) => ({
     errorList: error.list,
@@ -25,7 +31,7 @@ const Global: NextComponentType<NextPageContext, {}, Props> = ({ children, title
   const handlePopError = useCallback(() => dispatch(popError), [dispatch])
 
   return (
-    <div>
+    <div style={baseStyle}>
       <Head>
         <title>{title}</title>
         <meta charSet="utf-8" />
@@ -34,17 +40,13 @@ const Global: NextComponentType<NextPageContext, {}, Props> = ({ children, title
       <MenuAppBar credential={credential} handleSignOut={handleSignOut} />
       <GlobalErrorSnackBar errorList={errorList} popError={handlePopError} />
       {children}
-      <footer>
-        <hr />
-        <span> {"I'm here to stay (Footer)"}</span>
-      </footer>
     </div>
   )
 }
 
 Global.getInitialProps = async ({ req, store }: ExNextPageContext) => {
   // on server
-  // credential があれば ログインユーザー情報をとってくる
+  // credential があれば ログインユpーザー情報をとってくる
   if (req && req.session && req.session.credential) {
     const user = await fetchUserOnServer(req.firebaseStore, req.session.credential.uid)
     if (user) {

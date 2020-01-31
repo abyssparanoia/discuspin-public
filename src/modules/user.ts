@@ -12,7 +12,8 @@ export const actions = {
   fetchMeOnServer: actionCreator.async<void, { me: User }, Error>('FETCH_ME_ON_SERVER'),
   updateMe: actionCreator.async<void, void, Error>('UPDATE_ME'),
   uploadImage: actionCreator.async<void, { url: string }, Error>('UPLOAD_IMAGE'),
-  setMe: actionCreator<{ result: { user: User } }>('SET_ME')
+  setMe: actionCreator<{ result: { user: User } }>('SET_ME'),
+  unsetImage: actionCreator<void>('UNSET_IMAGE')
 }
 
 export interface State {
@@ -64,6 +65,7 @@ export const updateMe = (data: EditUser) => async (dispatch: Dispatch, _: () => 
     const user = await repository.updateMe(data.displayName, data.position, data.description, data.avatarURL)
     dispatch(actions.setMe({ result: { user } }))
     dispatch(actions.updateMe.done({}))
+    dispatch(actions.unsetImage())
   } catch (error) {
     dispatch(actions.updateMe.failed({ error }))
   }
@@ -72,6 +74,8 @@ export const updateMe = (data: EditUser) => async (dispatch: Dispatch, _: () => 
 export const setMe = (user: User) => (dispatch: Dispatch) => {
   dispatch(actions.setMe({ result: { user } }))
 }
+
+export const unsetImage = () => (dispatch: Dispatch) => dispatch(actions.unsetImage())
 
 export const reducer = reducerWithInitialState(initialState)
   .case(actions.fetchMe.started, state => ({
@@ -102,4 +106,21 @@ export const reducer = reducerWithInitialState(initialState)
   .case(actions.setMe, (state, payload) => ({
     ...state,
     me: payload.result.user
+  }))
+  .case(actions.uploadImage.started, state => ({
+    ...state,
+    isLoading: true
+  }))
+  .case(actions.uploadImage.done, (state, payload) => ({
+    ...state,
+    imageURL: payload.result.url,
+    isLoading: false
+  }))
+  .case(actions.uploadImage.failed, state => ({
+    ...state,
+    isLoading: false
+  }))
+  .case(actions.unsetImage, state => ({
+    ...state,
+    imageURL: undefined
   }))

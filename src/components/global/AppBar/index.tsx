@@ -4,7 +4,6 @@ import AppBar from '@material-ui/core/AppBar'
 import Toolbar from '@material-ui/core/Toolbar'
 import Typography from '@material-ui/core/Typography'
 import IconButton from '@material-ui/core/IconButton'
-import MenuIcon from '@material-ui/icons/Menu'
 import AccountCircle from '@material-ui/icons/AccountCircle'
 import MenuItem from '@material-ui/core/MenuItem'
 import Menu from '@material-ui/core/Menu'
@@ -12,6 +11,8 @@ import Menu from '@material-ui/core/Menu'
 import { Link } from 'src/components/atoms'
 import { Credential } from 'src/firebase/interface'
 import { ModalUserEdit } from './ModalUserEdit'
+import { useDispatch } from 'react-redux'
+import { unsetImage } from 'src/modules/user'
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -22,6 +23,12 @@ const useStyles = makeStyles(theme => ({
   },
   title: {
     flexGrow: 1
+  },
+  menu: {
+    width: '300px'
+  },
+  menuItem: {
+    padding: `${theme.spacing(2)}px !important`
   }
 }))
 
@@ -35,24 +42,24 @@ export const MenuAppBar = ({ credential, handleSignOut }: Props) => {
   const [anchorEl, setAnchorEl] = React.useState<(EventTarget & HTMLButtonElement) | undefined>(undefined)
   const [openUserModal, setOpenUserModal] = useState<boolean>(false)
   const open = Boolean(anchorEl)
-
+  const dispatch = useDispatch()
   const handleMenu = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => setAnchorEl(e.currentTarget)
 
   const handleClose = () => setAnchorEl(undefined)
 
   const handleOpenUserModal = () => setOpenUserModal(true)
-  const handleCloseUserModal = () => setOpenUserModal(false)
+  const handleCloseUserModal = () => {
+    setOpenUserModal(false)
+    dispatch(unsetImage())
+  }
 
   return (
     <div className={classes.root}>
       <ModalUserEdit open={openUserModal} closeHandler={handleCloseUserModal} />
       <AppBar position="static">
         <Toolbar>
-          <IconButton edge="start" className={classes.menuButton} color="inherit" aria-label="Menu">
-            <MenuIcon />
-          </IconButton>
           <Typography variant="h6" className={classes.title}>
-            <Link href="/">NextJS Firebase Boilerplate</Link>{' '}
+            <Link href="/">Discusspin</Link>{' '}
           </Typography>
           {credential && (
             <div>
@@ -72,6 +79,7 @@ export const MenuAppBar = ({ credential, handleSignOut }: Props) => {
                   vertical: 'top',
                   horizontal: 'right'
                 }}
+                className={classes.menu}
                 keepMounted
                 transformOrigin={{
                   vertical: 'top',
@@ -80,13 +88,12 @@ export const MenuAppBar = ({ credential, handleSignOut }: Props) => {
                 open={open}
                 onClose={handleClose}
               >
-                <MenuItem>
-                  <Link href="/login_required">
-                    <div>Login Required</div>
-                  </Link>
+                <MenuItem className={classes.menuItem} onClick={handleSignOut}>
+                  サインアウト
                 </MenuItem>
-                <MenuItem onClick={handleSignOut}>Sign Out</MenuItem>
-                <MenuItem onClick={handleOpenUserModal}>ユーザー編集</MenuItem>
+                <MenuItem className={classes.menuItem} onClick={handleOpenUserModal}>
+                  ユーザー編集
+                </MenuItem>
               </Menu>
             </div>
           )}

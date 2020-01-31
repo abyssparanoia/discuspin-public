@@ -4,18 +4,25 @@ import { authorize } from 'src/modules/services'
 import { useSelector, useDispatch } from 'react-redux'
 import { ReduxStore } from 'src/modules/reducer'
 import { watchChannelList, CreateChannelInput, unWatchChannelList, createChannel } from 'src/modules/channel'
-import { watchThreadList, createThread, CreateThreadInput, unWatchThreadList } from 'src/modules/thread'
+import { watchThreadList, createThread, CreateThreadInput, unWatchThreadList, fetchThread } from 'src/modules/thread'
 import { useRouter } from 'next/router'
 import { MessagesTemplate } from 'src/components/templates/channels/[channelID]/threads/[threadID]/messages'
-import { createMessage, CreateMessageInput, watchMessageList, unWatchMessageList } from 'src/modules/message'
+import {
+  createMessage,
+  CreateMessageInput,
+  watchMessageList,
+  unWatchMessageList,
+  unsetReply
+} from 'src/modules/message'
 
 type Props = {}
 
 const Threads = (_: Props) => {
-  const { channelList, threadList, messageList, isLoading } = useSelector(
+  const { channelList, threadList, thread, messageList, isLoading } = useSelector(
     ({ channel, thread, message }: ReduxStore) => ({
       channelList: channel.list,
       threadList: thread.list,
+      thread: thread.currenThread,
       messageList: message.list,
       isLoading: channel.isLoading || thread.isLoading || message.isLoading
     })
@@ -36,6 +43,8 @@ const Threads = (_: Props) => {
     dispatch(watchChannelList())
     dispatch(watchThreadList({ channelID }))
     dispatch(watchMessageList({ threadID }))
+    dispatch(fetchThread(threadID))
+    dispatch(unsetReply())
 
     return () => {
       dispatch(unWatchChannelList())
@@ -50,6 +59,7 @@ const Threads = (_: Props) => {
       channelID={channelID}
       threadID={threadID}
       channelList={channelList}
+      thread={thread}
       threadList={threadList}
       messageList={messageList}
       handleCreateChannel={handleCreateChannel}

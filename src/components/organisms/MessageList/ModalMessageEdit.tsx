@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { Modal, makeStyles, Grid, Button, TextField } from '@material-ui/core'
+import { Modal, makeStyles, Grid, Button, TextField, Fab } from '@material-ui/core'
 import { Formik, Form, FormikHelpers, Field } from 'formik'
 import { CreateMessageInput, editMessage } from 'src/modules/message'
 import { uploadImage } from 'src/modules/message'
@@ -7,16 +7,29 @@ import { useDispatch, useSelector } from 'react-redux'
 import { Message } from 'src/modules/entities'
 import { ReduxStore } from 'src/modules/reducer'
 
+import ImageIcon from '@material-ui/icons/Image'
+
 const useStyles = makeStyles(theme => ({
   editForm: {
     position: 'absolute',
-    width: '60vw',
-    height: '60vw',
-    maxHeight: '60vh',
     backgroundColor: theme.palette.background.paper,
     boxShadow: theme.shadows[5],
-    padding: '16px'
-    // padding: theme.spacing(2, 4, 3)
+    padding: theme.spacing(2),
+    minHeight: '60vh',
+    width: '50vw'
+  },
+  forms: {
+    minHeight: '60vh'
+  },
+  formTag: {
+    height: '100%',
+    display: 'flex',
+    flexFlow: 'column'
+  },
+  buttons: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing(3)
   }
 }))
 
@@ -80,6 +93,7 @@ export const ModalMessageEdit = (props: Props) => {
             }, [imageUrl])
             return (
               <Form
+                className={classes.formTag}
                 //- short cut
                 onKeyDown={(e: React.KeyboardEvent) => {
                   if (((e.ctrlKey && !e.metaKey) || (!e.ctrlKey && e.metaKey)) && e.keyCode == 13) {
@@ -87,25 +101,29 @@ export const ModalMessageEdit = (props: Props) => {
                   }
                 }}
               >
-                <Field
-                  name="text"
-                  type="text"
-                  placeholder="投稿する内容を入力してください"
-                  fullWidth={true}
-                  component={TextField}
-                  value={values.text}
-                  onChange={handleChange('text')}
-                ></Field>
-                <Grid>
-                  <Button color="primary" disabled={isSubmitting} onClick={submitForm}>
+                <Grid className={classes.forms}>
+                  <Field
+                    name="text"
+                    type="text"
+                    placeholder="投稿する内容を入力してください"
+                    fullWidth={true}
+                    component={TextField}
+                    value={values.text}
+                    onChange={handleChange('text')}
+                    multiline={true}
+                  ></Field>
+                </Grid>
+
+                <Grid className={classes.buttons}>
+                  <label htmlFor="input-file">
+                    <Fab color="primary" component="label" size="small">
+                      <ImageIcon />
+                      <input type="file" id="input-file" style={{ display: 'none' }} onChange={handleImageUpload} />
+                    </Fab>
+                  </label>
+                  <Button variant="contained" color="primary" disabled={isSubmitting} onClick={submitForm}>
                     送信
                   </Button>
-                  <label>
-                    <Button variant="contained" component="label" style={{ pointerEvents: 'none' }} color="primary">
-                      画像アップロード
-                      <input type="file" id="input-file" style={{ display: 'none' }} onChange={handleImageUpload} />
-                    </Button>
-                  </label>
                 </Grid>
               </Form>
             )

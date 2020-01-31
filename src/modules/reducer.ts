@@ -6,6 +6,7 @@ import { State as ChannelState, reducer as channelReducer } from './channel'
 import { State as ThreadState, reducer as threadReducer } from './thread'
 import { State as MessageState, reducer as messageReducer } from './message'
 import { State as UserState, reducer as userReducer } from './user'
+import { State as AlgliaState, reducer as algoliaReducer } from './algolia'
 
 export interface ReduxStore {
   error: ErrorState
@@ -15,6 +16,7 @@ export interface ReduxStore {
   thread: ThreadState
   message: MessageState
   user: UserState
+  algolia: AlgliaState
 }
 
 export const createRootReducer = () =>
@@ -25,5 +27,6 @@ export const createRootReducer = () =>
     channel: channelReducer,
     thread: threadReducer,
     message: messageReducer,
-    user: userReducer
+    user: userReducer,
+    algolia: algoliaReducer
   })

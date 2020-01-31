@@ -12,12 +12,12 @@ const useStyles = makeStyles((theme: Theme) =>
       padding: theme.spacing(2)
     },
     formFields: {
-      marginTop: theme.spacing(2),
+      marginBottom: `${theme.spacing(2)}px !important`,
       width: '100%',
       textAlign: 'left'
     },
     formTextArea: {
-      marginTop: theme.spacing(2),
+      marginBottom: `${theme.spacing(2)}px !important`,
       width: '100%',
       height: '200px',
       textAlign: 'left'
@@ -73,6 +73,7 @@ export const CreateChannelForm = ({ onSubmit, onClose }: Props) => {
             label="Description"
             className={classes.formTextArea}
             component={TextField}
+            multiline={true}
           />
           <Button
             variant="contained"

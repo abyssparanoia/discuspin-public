@@ -13,9 +13,8 @@ const useStyles = makeStyles((theme: Theme) =>
   createStyles({
     root: {
       boxSizing: 'border-box',
-      width: '21vw',
       height: '100%',
-      padding: '16px 0px',
+      paddingTop: theme.spacing(1),
       backgroundColor: theme.palette.background.default,
       borderRight: 'solid 1px #424242',
       overflow: 'scroll'
@@ -24,15 +23,12 @@ const useStyles = makeStyles((theme: Theme) =>
       width: '100%',
       fontWeight: 'bold',
       fontSize: '18px',
-      padding: '0px 12px',
-      color: '#1c54b2'
+      padding: theme.spacing(2),
+      color: theme.palette.text.primary
     },
     addBtn: {
-      width: '30px',
-      height: '30px',
-      marginRight: '8px',
-      flex: '1 0 auto',
-      minHeight: '10px !important'
+      marginRight: `${theme.spacing(2)}px !important`,
+      flex: '1 0 auto'
     },
     dialogContentText: {
       fontSize: '13px'
@@ -44,7 +40,6 @@ const useStyles = makeStyles((theme: Theme) =>
     },
     thread: {
       fontSize: '13px',
-      padding: '24px 12px',
       cursor: 'pointer',
       transition: '128ms',
       backgroundColor: theme.palette.background.default,
@@ -55,12 +50,22 @@ const useStyles = makeStyles((theme: Theme) =>
     },
     threadActive: {
       fontSize: '13px',
-      padding: '24px 12px',
       cursor: 'pointer',
       transition: '128ms',
       backgroundColor: theme.palette.primary.dark,
       boxShadow: theme.shadows[4],
       color: theme.palette.text.primary
+    },
+
+    link: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      textDecoration: 'none',
+      width: '100%',
+      height: '100%',
+      color: theme.palette.text.primary,
+      padding: theme.spacing(3)
     }
   })
 )
@@ -88,8 +93,8 @@ export const ThreadList = ({ channelID, threadID, threadList, handleCreateThread
       >
         <div className={classes.title}>スレッド一覧</div>
         <Tooltip title="Add" aria-label="Add">
-          <Fab color="secondary" className={classes.addBtn} size="small" onClick={() => setIsDialog(true)}>
-            <AddIcon />
+          <Fab color="primary" className={classes.addBtn} size="small" onClick={() => setIsDialog(true)}>
+            <AddIcon fontSize="small" />
           </Fab>
         </Tooltip>
       </div>
@@ -101,7 +106,7 @@ export const ThreadList = ({ channelID, threadID, threadList, handleCreateThread
               href={`/channels/[channelID]/threads/[threadID]/messages`}
               as={`/channels/${channelID}/threads/${thread.id}/messages`}
             >
-              <a>{thread.title}</a>
+              <a className={classes.link}>{thread.title}</a>
             </Link>
           </div>
         )

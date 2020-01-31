@@ -13,9 +13,8 @@ const useStyles = makeStyles((theme: Theme) =>
   createStyles({
     root: {
       boxSizing: 'border-box',
-      width: '21vw',
       height: '100%',
-      padding: '16px 0px',
+      paddingTop: theme.spacing(1),
       backgroundColor: theme.palette.background.default,
       borderRight: 'solid 1px #424242',
       overflow: 'scroll'
@@ -24,15 +23,12 @@ const useStyles = makeStyles((theme: Theme) =>
       width: '100%',
       fontWeight: 'bold',
       fontSize: '18px',
-      padding: '0px 12px',
-      color: '#1c54b2'
+      padding: theme.spacing(2),
+      color: theme.palette.text.primary
     },
     addBtn: {
-      width: '30px',
-      height: '30px',
-      marginRight: '8px',
-      flex: '1 0 auto',
-      minHeight: '10px !important'
+      marginRight: `${theme.spacing(2)}px !important`,
+      flex: '1 0 auto'
     },
     dialogContentText: {
       fontSize: '13px'
@@ -67,8 +63,8 @@ export const ChannelList = ({ channelID, channelList, handleCreateChannel }: Pro
       >
         <div className={classes.title}>チャンネル一覧</div>
         <Tooltip title="Add" aria-label="Add">
-          <Fab color="secondary" className={classes.addBtn} size="small" onClick={() => setIsDialog(true)}>
-            <AddIcon />
+          <Fab color="primary" className={classes.addBtn} size="small" onClick={() => setIsDialog(true)}>
+            <AddIcon fontSize="small" />
           </Fab>
         </Tooltip>
       </div>
